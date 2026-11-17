@@ -1,0 +1,50 @@
+[
+  {
+    "title": "输出 X 项目可行性分析并发评审",
+    "action": "周三前把可行性分析发张工提前看，随后拉各部门领导评审",
+    "requester": "张工",
+    "owner": "我",
+    "due": "2026-11-18",
+    "priority": "high",
+    "confidence": 0.9,
+    "quote": "周三前把可行性分析发我，随后拉各部门评审",
+    "source": {
+      "chat": "X 项目研发群",
+      "chatId": "oc_sample_1",
+      "anchorId": "om_sample_1",
+      "anchorTime": 1794821057344
+    }
+  },
+  {
+    "title": "下班前把测试报告发给客户",
+    "action": "整理本轮一方测试数据，出报告发客户对接人",
+    "requester": "李经理",
+    "owner": "我",
+    "due": "",
+    "priority": "high",
+    "confidence": 0.8,
+    "quote": "这份测试报告今天下班前发给客户",
+    "source": {
+      "chat": "李经理",
+      "chatId": "oc_sample_2",
+      "anchorId": "om_sample_2",
+      "anchorTime": 1794823200914
+    }
+  },
+  {
+    "title": "确认 SPU 编号拆分方案",
+    "action": "给出编号上限 255 的通用拆分做法，回复对方",
+    "requester": "王工",
+    "owner": "我",
+    "due": "",
+    "priority": "normal",
+    "confidence": 0.7,
+    "quote": "SPU 号超过 255 了怎么处理？以后新项目怎么办",
+    "source": {
+      "chat": "王工",
+      "chatId": "oc_sample_3",
+      "anchorId": "om_sample_3",
+      "anchorTime": 1794817764142
+    }
+  }
+]

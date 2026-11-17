@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>飞书任务便签</title>
+<style>
+  :root{
+    --ink:#262d3d; --ink2:#59627a; --ink3:#8b93a6;
+    --glass:linear-gradient(158deg,rgba(255,255,255,.72),rgba(255,255,255,.44));
+    --hair:rgba(255,255,255,.78);
+    --shadow:0 24px 60px -26px rgba(35,48,80,.42), 0 2px 10px rgba(35,48,80,.06);
+    --accent:#5b8def; --hot:#e2557b; --ok:#2fae7e;
+    --r:28px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; color:var(--ink); font-family:"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:#eaeef6; -webkit-font-smoothing:antialiased;
+    display:flex; align-items:flex-start; justify-content:center; padding:34px 26px 46px; min-height:100%;
+  }
+  /* 背景色块：磨砂玻璃要有东西可「磨」 */
+  .mesh{position:fixed; inset:-25%; z-index:0; filter:blur(64px) saturate(120%); pointer-events:none;
+    background:
+      radial-gradient(38% 38% at 18% 22%, #b9d2ff 0%, transparent 62%),
+      radial-gradient(34% 34% at 82% 16%, #ffd7e6 0%, transparent 62%),
+      radial-gradient(44% 44% at 74% 82%, #c6f2e4 0%, transparent 64%),
+      radial-gradient(36% 36% at 22% 86%, #ffe8c8 0%, transparent 62%);
+    animation:drift 30s ease-in-out infinite alternate;
+  }
+  @keyframes drift{
+    0%{transform:translate3d(-2%,-1%,0) scale(1.02)}
+    50%{transform:translate3d(2%,1.5%,0) scale(1.06)}
+    100%{transform:translate3d(-1%,2%,0) scale(1.03)}
+  }
+  @media (prefers-reduced-motion:reduce){ .mesh{animation:none} }
+
+  .wrap{position:relative; z-index:1; display:grid; grid-template-columns:minmax(360px,1fr) minmax(380px,.92fr);
+    gap:26px; width:100%; max-width:1180px; align-items:start}
+  @media (max-width:940px){ .wrap{grid-template-columns:1fr} }
+
+  .glass{
+    position:relative; border-radius:var(--r); background:var(--glass);
+    border:1px solid var(--hair); box-shadow:var(--shadow);
+    backdrop-filter:blur(24px) saturate(185%); -webkit-backdrop-filter:blur(24px) saturate(185%);
+  }
+  .glass::after{
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,255,255,.55),transparent 34%);
+    mix-blend-mode:screen; opacity:.7;
+  }
+
+  /* ── 便签 ───────────────────────────────── */
+  .note{padding:26px 26px 18px; transform:rotate(-.35deg)}
+  .tape{position:absolute; top:-13px; left:50%; width:132px; height:26px; margin-left:-66px; border-radius:4px;
+    background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.5));
+    border:1px solid rgba(255,255,255,.9); box-shadow:0 3px 10px rgba(70,86,120,.16);
+    backdrop-filter:blur(2px); transform:rotate(-1.6deg)}
+  .note-head{display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding-bottom:14px;
+    border-bottom:1px dashed rgba(120,134,168,.28)}
+  .note-date{font-size:26px; font-weight:700; letter-spacing:.5px}
+  .note-sub{margin-top:6px; font-size:12.5px; color:var(--ink3)}
+  .seg{display:flex; padding:3px; border-radius:12px; background:rgba(255,255,255,.5);
+    border:1px solid rgba(255,255,255,.85); box-shadow:inset 0 1px 2px rgba(70,86,120,.07)}
+  .seg-btn{border:0; background:transparent; color:var(--ink2); font:inherit; font-size:12.5px; padding:6px 12px;
+    border-radius:9px; cursor:pointer; transition:.18s}
+  .seg-btn.is-on{background:#fff; color:var(--ink); box-shadow:0 2px 8px rgba(50,66,100,.14)}
+
+  .tasks{list-style:none; margin:0; padding:8px 0 10px; max-height:min(64vh,560px); overflow:auto; scrollbar-width:thin;
+    mask-image:linear-gradient(180deg,#000 0,rgba(0,0,0,.95) 88%,rgba(0,0,0,.55) 100%);
+    -webkit-mask-image:linear-gradient(180deg,#000 0,rgba(0,0,0,.95) 88%,rgba(0,0,0,.55) 100%)}
+  .tasks::-webkit-scrollbar{width:8px}
+  .tasks::-webkit-scrollbar-thumb{background:rgba(120,134,168,.28); border-radius:8px}
+
+  .task{display:flex; gap:12px; padding:12px 10px; border-radius:16px; transition:background .18s, opacity .25s, transform .25s;
+    animation:pop .28s ease both}
+  @keyframes pop{from{opacity:0; transform:translateY(5px)} to{opacity:1; transform:none}}
+  .task+.task{border-top:1px solid rgba(255,255,255,.6)}
+  .task:hover{background:rgba(255,255,255,.5)}
+  .tick{flex:0 0 auto; width:21px; height:21px; margin-top:2px; border-radius:50%; cursor:pointer;
+    border:1.6px solid rgba(110,126,160,.55); background:rgba(255,255,255,.6); position:relative; transition:.2s}
+  .tick:hover{border-color:var(--accent); box-shadow:0 0 0 4px rgba(91,141,239,.14)}
+  .tick::after{content:""; position:absolute; inset:0; margin:auto; width:9px; height:5px;
+    border-left:2.2px solid #fff; border-bottom:2.2px solid #fff; transform:rotate(-45deg) scale(.4); opacity:0; transition:.2s}
+  .task.is-done .tick{background:var(--ok); border-color:var(--ok)}
+  .task.is-done .tick::after{opacity:1; transform:rotate(-45deg) scale(1)}
+  .task.is-done .title{color:var(--ink3); text-decoration:line-through; text-decoration-thickness:1.4px}
+  .task.is-done{opacity:.62}
+
+  .body{min-width:0; flex:1}
+  .t{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+  .title{font-size:14.5px; font-weight:600; line-height:1.45}
+  .pill{font-size:11px; padding:1.5px 7px; border-radius:999px; border:1px solid transparent; white-space:nowrap}
+  .pill.hot{color:#a5264c; background:rgba(255,196,214,.55); border-color:rgba(226,85,123,.35)}
+  .pill.due{color:#1f5ea8; background:rgba(196,222,255,.55); border-color:rgba(91,141,239,.32)}
+  .pill.late{color:#8a3b12; background:rgba(255,214,178,.6); border-color:rgba(214,131,60,.38)}
+  .meta{margin-top:5px; display:flex; gap:10px; flex-wrap:wrap; font-size:11.5px; color:var(--ink3)}
+  .act{margin-top:6px; font-size:12.5px; color:var(--ink2); line-height:1.6}
+
+  .note-foot{margin-top:6px; padding-top:12px; border-top:1px dashed rgba(120,134,168,.28);
+    display:flex; justify-content:space-between; gap:12px; font-size:11.5px; color:var(--ink3)}
+  .empty{padding:26px 10px; text-align:center; color:var(--ink3); font-size:13px; line-height:1.9}
+
+  /* ── 日历 ───────────────────────────────── */
+  .cal{padding:22px 22px 18px}
+  .cal-head{display:flex; align-items:center; gap:10px; margin-bottom:14px}
+  .cal-title{font-size:16px; font-weight:700; letter-spacing:.4px}
+  .nav{width:28px; height:28px; border-radius:10px; cursor:pointer; font:inherit; font-size:16px; line-height:1;
+    color:var(--ink2); background:rgba(255,255,255,.55); border:1px solid rgba(255,255,255,.9); transition:.18s}
+  .nav:hover{background:#fff; color:var(--ink)}
+  .today-btn{margin-left:auto; font:inherit; font-size:12px; padding:6px 12px; border-radius:10px; cursor:pointer;
+    color:var(--ink2); background:rgba(255,255,255,.55); border:1px solid rgba(255,255,255,.9); transition:.18s}
+  .today-btn:hover{background:#fff; color:var(--ink)}
+
+  .week{display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-bottom:8px;
+    font-size:11px; color:var(--ink3); text-align:center}
+  .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:8px}
+  .cell{position:relative; min-height:74px; padding:8px 7px 6px; border-radius:14px; cursor:pointer; text-align:left;
+    font:inherit; color:var(--ink); background:rgba(255,255,255,.4); border:1px solid rgba(255,255,255,.72);
+    transition:transform .16s, background .18s, box-shadow .18s; display:flex; flex-direction:column; gap:5px}
+  .cell:hover{background:rgba(255,255,255,.72); transform:translateY(-1px); box-shadow:0 8px 18px -10px rgba(50,66,100,.4)}
+  .cell.is-blank{background:transparent; border-color:transparent; cursor:default; pointer-events:none}
+  .cell.is-today{border-color:rgba(91,141,239,.55); box-shadow:inset 0 0 0 1.5px rgba(91,141,239,.28)}
+  .cell.is-sel{background:rgba(255,255,255,.92); box-shadow:0 10px 22px -12px rgba(50,66,100,.5), inset 0 0 0 1.6px rgba(91,141,239,.5)}
+  .dnum{font-size:12.5px; font-weight:600; color:var(--ink2)}
+  .cell.is-today .dnum{color:var(--accent)}
+  .dots{display:flex; gap:4px; flex-wrap:wrap; align-items:center}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--accent); opacity:.95}
+  .dot.hot{background:var(--hot)}
+  .dot.low{background:#9aa7bd}
+  .dot.done{background:transparent; border:1.4px solid rgba(120,134,168,.6); opacity:.8}
+  .more{font-size:10px; color:var(--ink3)}
+  .duebadge{margin-top:auto; font-size:10.5px; color:#1f5ea8; background:rgba(196,222,255,.62);
+    border:1px solid rgba(91,141,239,.3); border-radius:999px; padding:1px 6px; align-self:flex-start; white-space:nowrap}
+  .duebadge.late{color:#8a3b12; background:rgba(255,214,178,.66); border-color:rgba(214,131,60,.36)}
+
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:14px; padding-top:12px;
+    border-top:1px dashed rgba(120,134,168,.28); font-size:11px; color:var(--ink3)}
+  .legend i{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; vertical-align:1px}
+
+  .toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,14px); opacity:0; pointer-events:none;
+    display:flex; align-items:center; gap:12px; padding:11px 16px; border-radius:14px; font-size:13px; color:var(--ink);
+    background:rgba(255,255,255,.82); border:1px solid rgba(255,255,255,.95); box-shadow:0 16px 34px -16px rgba(35,48,80,.5);
+    backdrop-filter:blur(16px) saturate(180%); transition:.24s; z-index:9}
+  .toast.is-on{transform:translate(-50%,0); opacity:1; pointer-events:auto}
+  .toast button{font:inherit; font-size:12.5px; padding:5px 11px; border-radius:9px; cursor:pointer;
+    color:#1f5ea8; background:rgba(196,222,255,.6); border:1px solid rgba(91,141,239,.35)}
+  .toast button:hover{background:rgba(196,222,255,.95)}
+</style>
+</head>
+<body>
+<div class="mesh" aria-hidden="true"></div>
+
+<main class="wrap">
+  <section class="note glass">
+    <span class="tape" aria-hidden="true"></span>
+    <header class="note-head">
+      <div>
+        <div class="note-date" id="noteDate">—</div>
+        <div class="note-sub" id="noteSub">正在读取…</div>
+      </div>
+      <div class="seg" id="seg">
+        <button class="seg-btn is-on" data-mode="day">当日</button>
+        <button class="seg-btn" data-mode="open">未完成</button>
+      </div>
+    </header>
+    <ul class="tasks" id="tasks"></ul>
+    <footer class="note-foot">
+      <span id="footLeft">—</span>
+      <span id="footRight">—</span>
+    </footer>
+  </section>
+
+  <section class="cal glass">
+    <header class="cal-head">
+      <button class="nav" id="prev" aria-label="上个月">‹</button>
+      <div class="cal-title" id="calTitle">—</div>
+      <button class="nav" id="next" aria-label="下个月">›</button>
+      <button class="today-btn" id="todayBtn">回到今天</button>
+    </header>
+    <div class="week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+    <div class="grid" id="grid"></div>
+    <div class="legend">
+      <span><i style="background:#e2557b"></i>高优先</span>
+      <span><i style="background:#5b8def"></i>普通</span>
+      <span><i style="border:1.4px solid rgba(120,134,168,.6)"></i>已完成</span>
+      <span><i style="background:rgba(196,222,255,.9);border:1px solid rgba(91,141,239,.5)"></i>当天到期</span>
+      <span>圆点 = 当天扫描到的任务</span>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const pad = (n) => String(n).padStart(2, '0')
+const ymd = (y, m, d) => y + '-' + pad(m + 1) + '-' + pad(d)
+const WD = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+
+let S = null
+let mode = 'day'
+let sel = ''
+let view = { y: 0, m: 0 }
+
+const dom = (id) => document.getElementById(id)
+
+function weekdayOf(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const i = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7
+  return WD[i]
+}
+function fmtShort(dateStr) {
+  const [, m, d] = dateStr.split('-')
+  return Number(m) + '月' + Number(d) + '日'
+}
+function paint() {
+  const byScan = {}
+  const byDue = {}
+  for (const t of S.tasks) {
+    if (t.scanDate) (byScan[t.scanDate] = byScan[t.scanDate] || []).push(t)
+    if (t.due) (byDue[t.due] = byDue[t.due] || []).push(t)
+  }
+  const dayTasks = (mode === 'day')
+    ? [...(byScan[sel] || [])].sort(sortTasks)
+    : S.tasks.filter((t) => t.status === 'open').sort(sortTasks)
+  const dueHere = (mode === 'day' ? (byDue[sel] || []).filter((t) => t.status === 'open' && t.scanDate !== sel) : [])
+
+  dom('noteDate').textContent = mode === 'day'
+    ? fmtShort(sel) + ' ' + weekdayOf(sel)
+    : '全部未完成'
+  dom('noteSub').textContent = mode === 'day'
+    ? '扫描到 ' + dayTasks.length + ' 条 · 未完成共 ' + S.counts.open + ' · 已完成 ' + S.counts.done
+    : '共 ' + S.counts.open + ' 条待办 · 已完成 ' + S.counts.done
+
+  renderTasks(dayTasks, dueHere)
+  renderCalendar(byScan, byDue)
+
+  const upd = S.updatedAt ? new Date(S.updatedAt).toLocaleString('zh-CN', { timeZone: S.tz, hour12: false }) : '—'
+  dom('footLeft').textContent = '最近一次扫描写库：' + upd
+  dom('footRight').textContent = '点圆圈即完成，可撤销'
+}
+
+function sortTasks(a, b) {
+  const done = (a.status === 'done') - (b.status === 'done')
+  if (done) return done
+  if (a.due !== b.due) {
+    if (!a.due) return 1
+    if (!b.due) return -1
+    return a.due < b.due ? -1 : 1
+  }
+  return (b.priority === 'high') - (a.priority === 'high')
+}
+
+function row(t) {
+  const li = document.createElement('li')
+  li.className = 'task' + (t.status === 'done' ? ' is-done' : '')
+  li.dataset.id = t.id
+  if (t.quote) li.title = '原话：' + t.quote
+
+  const tick = document.createElement('button')
+  tick.className = 'tick'
+  tick.type = 'button'
+  tick.setAttribute('aria-label', t.status === 'done' ? '标记未完成' : '标记完成')
+  tick.addEventListener('click', (e) => {
+    e.stopPropagation()
+    setStatus(t.id, t.status === 'done' ? 'open' : 'done')
+  })
+
+  const body = document.createElement('div')
+  body.className = 'body'
+
+  const head = document.createElement('div')
+  head.className = 't'
+  const tt = document.createElement('span')
+  tt.className = 'title'
+  tt.textContent = t.title
+  head.appendChild(tt)
+  if (t.priority === 'high') head.appendChild(pill('高优先', 'hot'))
+  if (t.due) head.appendChild(pill('截止 ' + t.due.slice(5), t.due < S.today && t.status === 'open' ? 'late' : 'due'))
+
+  const meta = document.createElement('div')
+  meta.className = 'meta'
+  if (t.requester) meta.appendChild(span(t.requester + ' 提'))
+  if (t.source && t.source.chat) meta.appendChild(span('来自「' + t.source.chat + '」'))
+  if (t.status === 'done' && t.doneDate) meta.appendChild(span('已完成 ' + t.doneDate.slice(5)))
+
+  body.appendChild(head)
+  if (meta.childNodes.length) body.appendChild(meta)
+  if (t.action) {
+    const act = document.createElement('div')
+    act.className = 'act'
+    act.textContent = t.action
+    body.appendChild(act)
+  }
+  li.appendChild(tick)
+  li.appendChild(body)
+  return li
+}
+
+function pill(text, kind) {
+  const s = document.createElement('span')
+  s.className = 'pill ' + kind
+  s.textContent = text
+  return s
+}
+function span(text) {
+  const s = document.createElement('span')
+  s.textContent = text
+  return s
+}
+
+function renderTasks(list, dueHere) {
+  const box = dom('tasks')
+  box.innerHTML = ''
+  if (!list.length) {
+    const e = document.createElement('li')
+    e.className = 'empty'
+    e.textContent = mode === 'day' ? '这一天没有扫描到新任务' : '没有未完成的任务，收工 🎉'
+    box.appendChild(e)
+  }
+  for (const t of list) box.appendChild(row(t))
+
+  if (dueHere && dueHere.length) {
+    const sep = document.createElement('li')
+    sep.className = 'empty'
+    sep.style.cssText = 'padding:12px 10px 6px; text-align:left; font-size:11.5px'
+    sep.textContent = '另有 ' + dueHere.length + ' 条这天到期（更早扫描到）：'
+    box.appendChild(sep)
+    for (const t of dueHere) box.appendChild(row(t))
+  }
+}
+
+function renderCalendar(byScan, byDue) {
+  dom('calTitle').textContent = view.y + ' 年 ' + (view.m + 1) + ' 月'
+  const grid = dom('grid')
+  grid.innerHTML = ''
+  const first = new Date(Date.UTC(view.y, view.m, 1))
+  const lead = (first.getUTCDay() + 6) % 7
+  const days = new Date(Date.UTC(view.y, view.m + 1, 0)).getUTCDate()
+
+  for (let i = 0; i < lead; i++) {
+    const b = document.createElement('div')
+    b.className = 'cell is-blank'
+    grid.appendChild(b)
+  }
+  for (let d = 1; d <= days; d++) {
+    const key = ymd(view.y, view.m, d)
+    const cell = document.createElement('button')
+    cell.type = 'button'
+    cell.className = 'cell'
+    cell.dataset.d = key
+    if (key === S.today) cell.classList.add('is-today')
+    if (key === sel) cell.classList.add('is-sel')
+
+    const num = document.createElement('span')
+    num.className = 'dnum'
+    num.textContent = d
+    cell.appendChild(num)
+
+    const list = byScan[key] || []
+    if (list.length) {
+      const dots = document.createElement('span')
+      dots.className = 'dots'
+      list.slice(0, 4).forEach((t) => {
+        const dot = document.createElement('i')
+        dot.className = 'dot' + (t.status === 'done' ? ' done' : t.priority === 'high' ? ' hot' : t.priority === 'low' ? ' low' : '')
+        dots.appendChild(dot)
+      })
+      if (list.length > 4) {
+        const more = document.createElement('span')
+        more.className = 'more'
+        more.textContent = '+' + (list.length - 4)
+        dots.appendChild(more)
+      }
+      cell.appendChild(dots)
+    }
+
+    const due = (byDue[key] || []).filter((t) => t.status === 'open')
+    if (due.length) {
+      const badge = document.createElement('span')
+      badge.className = 'duebadge' + (key < S.today ? ' late' : '')
+      badge.textContent = due.length + ' 到期'
+      cell.appendChild(badge)
+    }
+
+    cell.addEventListener('click', () => {
+      sel = key
+      mode = 'day'
+      syncSeg()
+      paint()
+    })
+    grid.appendChild(cell)
+  }
+}
+
+function syncSeg() {
+  for (const b of dom('seg').querySelectorAll('.seg-btn')) b.classList.toggle('is-on', b.dataset.mode === mode)
+}
+
+let toastTimer = 0
+function toast(msg, undoId) {
+  const box = dom('toast')
+  box.innerHTML = ''
+  box.appendChild(span(msg))
+  if (undoId) {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.textContent = '撤销'
+    btn.addEventListener('click', () => {
+      setStatus(undoId, 'open')
+      box.classList.remove('is-on')
+    })
+    box.appendChild(btn)
+  }
+  box.classList.add('is-on')
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => box.classList.remove('is-on'), 10000)
+}
+
+async function setStatus(id, status) {
+  try {
+    const res = await fetch('/api/status', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    })
+    const out = await res.json()
+    if (!out.ok) return toast('没改成：' + (out.error || '未知原因'))
+    const idx = S.tasks.findIndex((t) => t.id === id)
+    if (idx >= 0) S.tasks[idx] = out.task
+    S.counts.open = S.tasks.filter((t) => t.status === 'open').length
+    S.counts.done = S.tasks.filter((t) => t.status === 'done').length
+    paint()
+    if (status === 'done') toast('已完成：' + out.task.title, id)
+    else toast('已恢复未完成：' + out.task.title)
+  } catch (err) {
+    toast('连不上本地服务，先确认 node src/web.mjs 还在跑')
+  }
+}
+
+async function boot() {
+  try {
+    const res = await fetch('/api/state')
+    S = await res.json()
+  } catch (err) {
+    dom('noteSub').textContent = '连不上本地服务，先运行 node src/web.mjs'
+    return
+  }
+  sel = S.today
+  const [y, m] = sel.split('-').map(Number)
+  view = { y, m: m - 1 }
+
+  dom('seg').addEventListener('click', (e) => {
+    const b = e.target.closest('.seg-btn')
+    if (!b) return
+    mode = b.dataset.mode
+    syncSeg()
+    paint()
+  })
+  dom('prev').addEventListener('click', () => {
+    view.m -= 1
+    if (view.m < 0) { view.m = 11; view.y -= 1 }
+    paint()
+  })
+  dom('next').addEventListener('click', () => {
+    view.m += 1
+    if (view.m > 11) { view.m = 0; view.y += 1 }
+    paint()
+  })
+  dom('todayBtn').addEventListener('click', () => {
+    sel = S.today
+    const [yy, mm] = sel.split('-').map(Number)
+    view = { y: yy, m: mm - 1 }
+    mode = 'day'
+    syncSeg()
+    paint()
+  })
+
+  paint()
+  setInterval(refresh, 60000)
+}
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/state')
+    const next = await res.json()
+    if (next.updatedAt !== S.updatedAt) {
+      S = next
+      paint()
+    }
+  } catch {}
+}
+
+boot()
+</script>
+</body>
+</html>

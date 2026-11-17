@@ -1,0 +1,35 @@
+{
+  "name": "feishu-task-widget",
+  "version": "0.1.0",
+  "description": "把飞书消息提炼成任务提醒：CLI + Windows 桌面便签 + DeepSeek Harness MCP 插件",
+  "type": "module",
+  "bin": {
+    "feishu-task-widget": "src/index.mjs",
+    "ftw": "src/index.mjs"
+  },
+  "scripts": {
+    "status": "node src/index.mjs status",
+    "login": "node src/index.mjs login",
+    "scan": "node src/index.mjs scan --hours 24",
+    "tasks": "node src/index.mjs tasks",
+    "web": "node src/index.mjs web",
+    "mcp": "node mcp/server.mjs",
+    "selftest": "node src/scan.mjs --self-test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "feishu",
+    "lark",
+    "mcp",
+    "deepseek-harness",
+    "task",
+    "widget",
+    "windows"
+  ]
+}

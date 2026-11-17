@@ -1,0 +1,13 @@
+node_modules/
+.data-dir
+.env
+secrets.env
+*.log
+
+# 运行时数据（令牌、扫描结果、提醒清单、桌面便签偏好）
+.state/
+out/
+reminders/
+p2p-chats.json
+tasks.json
+docs/assets/*.local.png

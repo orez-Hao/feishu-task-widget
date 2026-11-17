@@ -1,0 +1,21 @@
+name: selftest
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: 装依赖
+        run: npm install --no-audit --no-fund
+      - name: 离线自检（不联网、不需要凭证）
+        run: node src/scan.mjs --self-test
